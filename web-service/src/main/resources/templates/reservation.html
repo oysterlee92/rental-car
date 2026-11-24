@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- 선점 중일 때만 10초마다 현재 상태를 다시 조회한다. -->
+    <meta th:if="${reservation.status == 'HELD'}" http-equiv="refresh" content="10">
+    <title>예약 상세</title>
+    <link rel="stylesheet" th:href="@{/search.css}">
+</head>
+<body>
+<main>
+    <h1 th:text="${reservation.status == 'HELD' ? '차량을 선점했습니다.' : '선점이 만료되었습니다.'}"></h1>
+    <p th:if="${reservation.status == 'HELD'}">선점 만료 시각까지 차량을 확보했습니다. 현재는 결제 대기 상태입니다.</p>
+    <p th:if="${reservation.status == 'EXPIRED'}">차량을 다시 검색해 예약해 주세요.</p>
+    <dl class="reservation-detail">
+        <dt>예약 ID</dt><dd th:text="${reservation.id}"></dd>
+        <dt>차량</dt><dd th:text="${reservation.vehicleName}"></dd>
+        <dt>인수 시각</dt><dd th:text="${reservation.pickupAtText()}"></dd>
+        <dt>반납 시각</dt><dd th:text="${reservation.returnAtText()}"></dd>
+        <dt>선점 만료 시각</dt><dd th:text="${reservation.expiresAtText()}"></dd>
+        <dt>예약 요금</dt>
+        <dd th:text="|${#numbers.formatInteger(reservation.amount, 1, 'COMMA')}원|"></dd>
+    </dl>
+    <p class="hint">표시한 시각은 모두 한국 현지 시각 기준입니다.</p>
+    <a th:href="@{/}">차량 검색</a>
+</main>
+</body>
+</html>

@@ -1,0 +1,38 @@
+:root {
+    font-family: system-ui, sans-serif;
+    color: #18352e;
+    background: #f3f6f2;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { max-width: 1040px; margin: 64px auto; padding: 0 24px; }
+h1 { font-size: 36px; margin-bottom: 12px; }
+form {
+    /* 좁은 화면에서는 입력 영역이 다음 줄로 내려가도록 한다. */
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 18px;
+    margin-top: 32px;
+    padding: 24px;
+    background: white;
+    border-radius: 12px;
+}
+label { display: grid; gap: 10px; flex: 1 1 200px; font-weight: 600; }
+select, input, button { width: 100%; min-height: 46px; font: inherit; border-radius: 6px; }
+select, input { padding: 8px; border: 1px solid #a0b1a8; background: white; }
+button { width: auto; padding: 10px 24px; border: 0; color: white; background: #205c49; cursor: pointer; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid #e0a72e; outline-offset: 3px; }
+.hint { color: #52685c; font-size: 14px; }
+.error { padding: 16px; color: #8c2925; background: #ffe9e6; border-radius: 6px; }
+section { margin-top: 36px; }
+.vehicles { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.vehicles li { background: white; padding: 24px; border: 1px solid #d7e0d5; border-radius: 12px; }
+.vehicles h3 { margin-top: 0; font-size: 24px; }
+/* 차량 카드 안의 선점 버튼과 예약 상세 값을 배치한다. */
+.hold-form { display: block; margin: 16px 0 0; padding: 0; }
+.hold-form button { width: 100%; }
+.reservation-detail { padding: 24px; background: white; border-radius: 12px; overflow-wrap: anywhere; }
+.reservation-detail dt { margin-top: 16px; font-weight: 700; }
+.reservation-detail dd { margin: 8px 0 0; }
+a { color: #205c49; }

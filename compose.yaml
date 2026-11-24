@@ -1,0 +1,84 @@
+name: rental-car
+services:
+  postgres:
+    image: postgres:19.0
+    environment:
+      POSTGRES_DB: reservation
+      POSTGRES_USER: reservation
+      POSTGRES_PASSWORD: reservation-local
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
+    command: ["postgres", "-c", "timezone=Asia/Seoul"]
+    ports:
+      # 내 컴퓨터의 5432 포트를 DB 컨테이너의 5432 포트에 연결한다.
+      - "127.0.0.1:5432:5432"
+    volumes:
+      # DB 파일을 Docker 볼륨에 저장해 컨테이너를 다시 만들어도 데이터를 보관한다.
+      - postgres19-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U reservation -d reservation"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  reservation-service:
+    build:
+      context: .
+      args:
+        MODULE: reservation-service
+    environment:
+      TZ: Asia/Seoul
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Seoul
+      DB_URL: jdbc:postgresql://postgres:5432/reservation
+      DB_USERNAME: reservation
+      DB_PASSWORD: reservation-local
+    ports:
+      - "127.0.0.1:8081:8081"
+    depends_on:
+      # PostgreSQL의 상태 확인이 성공하면 Reservation을 시작하고 테이블을 준비한다.
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/actuator/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+  web-service:
+    build:
+      context: .
+      args:
+        MODULE: web-service
+    environment:
+      # Web 컨테이너는 reservation-service라는 이름으로 Reservation에 접속한다.
+      TZ: Asia/Seoul
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Seoul
+      RESERVATION_BASE_URL: http://reservation-service:8081
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      # Reservation의 상태 확인이 성공한 뒤 Web을 시작한다.
+      reservation-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  k6:
+    image: grafana/k6
+    # 기본 up에서는 실행하지 않고 부하 확인 명령으로만 실행한다.
+    profiles: [load]
+    environment:
+      BASE_URL: http://reservation-service:8081
+      BRANCH_ID: ${BRANCH_ID:-1}
+      VEHICLE_ID: ${VEHICLE_ID:-1}
+      PICKUP_AT: ${PICKUP_AT:-2030-06-01T10:00:00}
+      RETURN_AT: ${RETURN_AT:-2030-06-02T10:00:00}
+    volumes:
+      - ./scripts:/scripts:ro
+    depends_on:
+      reservation-service:
+        condition: service_healthy
+    command: ["run", "/scripts/reservation-race.js"]
+volumes:
+  postgres19-data:

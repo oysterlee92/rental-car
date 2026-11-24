@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>예약 안내</title>
+    <link rel="stylesheet" th:href="@{/search.css}">
+</head>
+<body>
+<main>
+    <h1>예약 안내</h1>
+    <p class="error" role="alert" th:text="${error}"></p>
+    <!-- 결과를 모르는 경우에는 원래 키와 조건을 그대로 보내 중복 생성을 막는다. -->
+    <form th:if="${retryAllowed}" th:action="@{/reservations}" method="post"
+          onsubmit="this.querySelector('button').disabled = true;">
+        <input type="hidden" name="requestKey" th:value="${requestKey}">
+        <input type="hidden" name="vehicleId" th:value="${vehicleId}">
+        <input type="hidden" name="branchId" th:value="${form.branchId}">
+        <input type="hidden" name="pickupAt" th:value="${form.pickupAt}">
+        <input type="hidden" name="returnAt" th:value="${form.returnAt}">
+        <button type="submit">같은 요청으로 다시 확인</button>
+    </form>
+    <p th:if="${form != null}">
+        <a th:href="@{/(search=true,branchId=${form.branchId},pickupAt=${form.pickupAt},returnAt=${form.returnAt})}">
+            같은 기간의 차량 다시 검색
+        </a>
+    </p>
+    <p><a th:href="@{/}">차량 검색</a></p>
+</main>
+</body>
+</html>

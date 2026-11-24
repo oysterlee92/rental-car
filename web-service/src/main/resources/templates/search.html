@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>렌트카 차량 검색</title>
+    <link rel="stylesheet" th:href="@{/search.css}">
+</head>
+<body>
+<main>
+    <h1>어디로 떠나시나요?</h1>
+    <p>지점과 대여 기간을 선택해 차량을 검색해 주세요.</p>
+    <!-- 검색 조건을 URL 파라미터로 보내고 th:field로 입력칸에 현재 값을 표시한다. -->
+    <form th:action="@{/}" th:object="${form}" method="get">
+        <!-- 첫 화면 방문과 실제 검색 제출을 구분한다. -->
+        <input type="hidden" name="search" value="true">
+        <label>인수·반납 지점
+            <select th:field="*{branchId}" required>
+                <option th:each="branch : ${branches}" th:value="${branch.id}" th:text="${branch.name}"></option>
+            </select>
+        </label>
+        <label>인수 시각
+            <input type="datetime-local" th:field="*{pickupAt}" required>
+        </label>
+        <label>반납 시각
+            <input type="datetime-local" th:field="*{returnAt}" required>
+        </label>
+        <button type="submit">차량 검색</button>
+    </form>
+    <p class="hint">인수·반납 시각은 한국 시각 기준입니다.</p>
+    <!-- 문자열 안에 HTML 태그가 있어도 th:text가 일반 글자로 표시한다. -->
+    <p class="error" role="alert" th:if="${error}" th:text="${error}"></p>
+    <!-- 검색 전에는 목록을 숨기고, 검색 후에는 빈 결과도 안내한다. -->
+    <section th:if="${vehicles != null}">
+        <h2>검색 결과</h2>
+        <p th:if="${#lists.isEmpty(vehicles)}">검색 조건에 맞는 차량이 없습니다.</p>
+        <ul class="vehicles">
+            <li th:each="vehicle : ${vehicles}">
+                <h3 th:text="${vehicle.name}"></h3>
+                <p th:text="|${vehicle.seats}인승|"></p>
+                <p><strong th:text="${#numbers.formatInteger(vehicle.dailyPrice, 1, 'COMMA')}"></strong>원 / 일</p>
+                <!-- 한 번 누르면 버튼을 잠그고, 재전송되어도 요청 키로 같은 예약을 찾는다. -->
+                <form class="hold-form" th:action="@{/reservations}" method="post"
+                      onsubmit="const button = this.querySelector('button'); button.disabled = true; button.textContent = '요청 중입니다.';">
+                    <input type="hidden" name="requestKey" th:value="${requestKeys[vehicle.id]}">
+                    <input type="hidden" name="vehicleId" th:value="${vehicle.id}">
+                    <input type="hidden" name="branchId" th:value="${form.branchId}">
+                    <input type="hidden" name="pickupAt" th:value="${form.pickupAt}">
+                    <input type="hidden" name="returnAt" th:value="${form.returnAt}">
+                    <button type="submit">차량 선점</button>
+                </form>
+            </li>
+        </ul>
+    </section>
+</main>
+</body>
+</html>

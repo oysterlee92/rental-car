@@ -1,0 +1,30 @@
+server:
+  port: 8081
+spring:
+  application:
+    name: reservation-service
+  datasource:
+    # Compose에서는 환경 변수로 DB 주소를 전달하고 로컬 실행에는 기본값을 쓴다.
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/reservation}
+    username: ${DB_USERNAME:reservation}
+    password: ${DB_PASSWORD:reservation-local}
+    hikari:
+      # 새 DB 연결도 설정한 시간대를 사용한다.
+      connection-init-sql: SET TIME ZONE 'Asia/Seoul'
+  jpa:
+    # DB 조회는 서비스의 트랜잭션 안에서 마치고, 컨트롤러에서는 DB 연결을 유지하지 않는다.
+    open-in-view: false
+    hibernate:
+      # 테이블은 Flyway가 만든다. JPA는 테이블 구조와 엔티티 설정이 맞는지 확인한다.
+      ddl-auto: validate
+  flyway:
+    enabled: true
+management:
+  endpoints:
+    web:
+      exposure:
+        # Compose가 앱 실행 상태를 확인할 수 있도록 /actuator/health를 연다.
+        include: health
+reservation:
+  # 새 예약의 선점을 5분 동안 유지한다.
+  hold-duration: PT5M
