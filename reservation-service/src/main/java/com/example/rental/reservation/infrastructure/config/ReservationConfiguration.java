@@ -1,4 +1,4 @@
-package com.example.rental.reservation.infrastructure;
+package com.example.rental.reservation.infrastructure.config;
 
 import java.time.Clock;
 import org.springframework.context.annotation.Bean;

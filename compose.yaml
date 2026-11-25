@@ -20,6 +20,51 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+  # 결제 DB는 예약 DB와 분리된 계정·볼륨을 사용한다.
+  payment-postgres:
+    image: postgres:19.0
+    environment:
+      POSTGRES_DB: payment
+      POSTGRES_USER: payment
+      POSTGRES_PASSWORD: payment-local
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
+    command: ["postgres", "-c", "timezone=Asia/Seoul"]
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - payment-postgres19-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U payment -d payment"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  payment-service:
+    build:
+      context: .
+      args:
+        MODULE: payment-service
+    environment:
+      TZ: Asia/Seoul
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Seoul
+      DB_URL: jdbc:postgresql://payment-postgres:5432/payment
+      DB_USERNAME: payment
+      DB_PASSWORD: payment-local
+      PAYMENT_MIN_MILLIS: ${PAYMENT_MIN_MILLIS:-200}
+      PAYMENT_MAX_MILLIS: ${PAYMENT_MAX_MILLIS:-5000}
+      PAYMENT_FAILURE_RATE: ${PAYMENT_FAILURE_RATE:-0.1}
+      OTLP_TRACES_ENDPOINT: http://tempo:4318/v1/traces
+    ports:
+      - "127.0.0.1:8082:8082"
+    depends_on:
+      payment-postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8082/actuator/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
   reservation-service:
     build:
       context: .
@@ -31,11 +76,15 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/reservation
       DB_USERNAME: reservation
       DB_PASSWORD: reservation-local
+      PAYMENT_BASE_URL: http://payment-service:8082
+      OTLP_TRACES_ENDPOINT: http://tempo:4318/v1/traces
     ports:
       - "127.0.0.1:8081:8081"
     depends_on:
       # PostgreSQL의 상태 확인이 성공하면 Reservation을 시작하고 테이블을 준비한다.
       postgres:
+        condition: service_healthy
+      payment-service:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8081/actuator/health"]
@@ -53,6 +102,7 @@ services:
       TZ: Asia/Seoul
       JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Seoul
       RESERVATION_BASE_URL: http://reservation-service:8081
+      OTLP_TRACES_ENDPOINT: http://tempo:4318/v1/traces
     ports:
       - "127.0.0.1:8080:8080"
     depends_on:
@@ -74,11 +124,47 @@ services:
       VEHICLE_ID: ${VEHICLE_ID:-1}
       PICKUP_AT: ${PICKUP_AT:-2030-06-01T10:00:00}
       RETURN_AT: ${RETURN_AT:-2030-06-02T10:00:00}
+      RUN_ID: ${RUN_ID:-}
+      VUS: ${VUS:-5}
+      ITERATIONS: ${ITERATIONS:-20}
     volumes:
       - ./scripts:/scripts:ro
     depends_on:
       reservation-service:
         condition: service_healthy
     command: ["run", "/scripts/reservation-race.js"]
+  prometheus:
+    image: prom/prometheus:v3.13.5
+    command: ["--config.file=/etc/prometheus/prometheus.yaml"]
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./infra/prometheus/prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
+      - prometheus-data:/prometheus
+  tempo:
+    image: grafana/tempo:2.9.0
+    command: ["-config.file=/etc/tempo.yaml"]
+    ports:
+      - "127.0.0.1:3200:3200"
+      - "127.0.0.1:4318:4318"
+    volumes:
+      - ./infra/tempo/tempo.yaml:/etc/tempo.yaml:ro
+      - tempo-data:/var/tempo
+  grafana:
+    image: grafana/grafana:12.1.0
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      # 로컬 실습 계정이다.
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: rental-local
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
 volumes:
   postgres19-data:
+  payment-postgres19-data:
+  prometheus-data:
+  tempo-data:
+  grafana-data:

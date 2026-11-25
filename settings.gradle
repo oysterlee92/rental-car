@@ -1,4 +1,4 @@
 rootProject.name = 'rental-car'
 
 // Reservation과 Web을 각각 빌드하고 실행할 수 있도록 두 모듈을 등록한다.
-include 'reservation-service', 'web-service'
+include 'reservation-service', 'web-service', 'payment-service'

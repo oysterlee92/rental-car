@@ -8,6 +8,7 @@
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
+            <option value="$PROJECT_DIR$/payment-service" />
             <option value="$PROJECT_DIR$/reservation-service" />
             <option value="$PROJECT_DIR$/web-service" />
           </set>
