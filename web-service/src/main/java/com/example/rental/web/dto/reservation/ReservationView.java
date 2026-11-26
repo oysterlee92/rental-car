@@ -15,7 +15,7 @@ import java.util.UUID;
  * @param returnAt 반납 시각
  * @param amount 원 단위 예약 요금
  * @param expiresAt 선점 만료 시각
- * @param status HELD 또는 EXPIRED
+ * @param status HELD, EXPIRED, PAYMENT_PENDING, CONFIRMED 또는 PAYMENT_FAILED
  */
 public record ReservationView(
         UUID id,

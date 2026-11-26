@@ -1,11 +1,13 @@
 package com.example.rental.reservation.application.service;
 
+import com.example.rental.reservation.application.transaction.ReservationTransactions;
 import com.example.rental.reservation.application.dto.reservation.HoldResult;
 import com.example.rental.reservation.application.dto.reservation.ReservationResponse;
-import com.example.rental.reservation.application.transaction.ReservationTransactions;
 import com.example.rental.reservation.domain.exception.ReservationConflictException;
 import com.example.rental.reservation.domain.vo.BranchId;
 import com.example.rental.reservation.domain.vo.RentalPeriod;
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -15,16 +17,19 @@ import org.springframework.stereotype.Service;
 public class ReservationService {
     private final ReservationExpiryService expiry;
     private final ReservationTransactions transactions;
+    private final ObservationRegistry observations;
 
     /**
      * 서로 다른 트랜잭션을 실행할 서비스들을 받는다.
      *
      * @param expiry 만료 해제 서비스
      * @param transactions 예약 트랜잭션 서비스
+     * @param observations 선점 지연과 추적을 기록할 도구
      */
-    public ReservationService(ReservationExpiryService expiry, ReservationTransactions transactions) {
+    public ReservationService(ReservationExpiryService expiry, ReservationTransactions transactions, ObservationRegistry observations) {
         this.expiry = expiry;
         this.transactions = transactions;
+        this.observations = observations;
     }
 
     /**
@@ -38,7 +43,7 @@ public class ReservationService {
      * @throws ReservationConflictException 다른 예약이나 요청 조건이 충돌한 경우
      * @throws DataIntegrityViolationException 기존 요청으로 복구할 수 없는 DB 무결성 오류인 경우
      */
-    public HoldResult hold(
+    private HoldResult doHold(
             UUID key,
             BranchId branchId,
             long vehicleId,
@@ -68,6 +73,28 @@ public class ReservationService {
             }
             throw exception;
         }
+    }
+
+    /**
+     * 선점 접수의 전체 처리 시간을 기록한다.
+     * @param key 요청 키
+     * @param branchId 지점
+     * @param vehicleId 차량 ID
+     * @param period 대여 기간
+     * @return 선점 처리 결과
+     */
+    public HoldResult hold(
+            UUID key,
+            BranchId branchId,
+            long vehicleId,
+            RentalPeriod period
+    ) {
+        return Observation.createNotStarted("reservation.hold", observations).observe(() -> doHold(
+                key,
+                branchId,
+                vehicleId,
+                period
+        ));
     }
 
     /**

@@ -50,4 +50,10 @@ public interface ReservationRepository {
      * @return 해당 차량의 만료 대상
      */
     List<Reservation> findDueForVehicleForUpdate(long vehicleId, LocalDateTime now);
+    /**
+     * 결제 결과를 기다리는 예약을 오래된 순서로 조회한다.
+     * @param limit 최대 조회 수
+     * @return 재확인할 예약 ID
+     */
+    List<UUID> findPendingIds(int limit);
 }

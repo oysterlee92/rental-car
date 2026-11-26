@@ -94,4 +94,16 @@ public class ReservationRepositoryAdapter implements ReservationRepository {
     public List<Reservation> findDueForVehicleForUpdate(long vehicleId, LocalDateTime now) {
         return jpa.findByVehicleIdAndStatusAndExpiresAtLessThanEqualOrderByExpiresAtAscIdAsc(vehicleId, ReservationStatus.HELD, now);
     }
+
+    /**
+     * 결제 중 예약을 생성 시각과 ID 순서로 조회해 예약 ID 목록으로 반환한다.
+     *
+     * @param limit 최대 조회 건수
+     * @return HTTP 결제 결과를 다시 확인할 예약 ID 목록
+     */
+    @Override
+    public List<UUID> findPendingIds(int limit) {
+        return jpa.findByStatusOrderByCreatedAtAscIdAsc(ReservationStatus.PAYMENT_PENDING, PageRequest.of(0, limit))
+                .stream().map(Reservation::getId).toList();
+    }
 }

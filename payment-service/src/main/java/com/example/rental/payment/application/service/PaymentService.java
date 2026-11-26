@@ -1,23 +1,22 @@
 package com.example.rental.payment.application.service;
 
+import lombok.extern.slf4j.Slf4j;
+import com.example.rental.payment.application.transaction.PaymentTransactions;
 import com.example.rental.payment.application.dto.PaymentRequest;
 import com.example.rental.payment.application.dto.PaymentResponse;
 import com.example.rental.payment.application.port.ApprovalGateway;
-import com.example.rental.payment.application.transaction.PaymentTransactions;
 import com.example.rental.payment.domain.enums.PaymentStatus;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /** 결제 접수·모의 승인·결과 저장의 순서를 관리한다. */
+@Slf4j
 @Service
 public class PaymentService {
-    private static final Logger log = LoggerFactory.getLogger(PaymentService.class);
     private final PaymentTransactions transactions;
     private final ApprovalGateway approvals;
     private final ObservationRegistry observations;

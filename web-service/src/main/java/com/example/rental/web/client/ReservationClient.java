@@ -29,10 +29,10 @@ public class ReservationClient {
      * @param baseUrl 실행 환경에 맞는 Reservation 주소
      */
     public ReservationClient(RestClient.Builder builder, @Value("${reservation.base-url}") String baseUrl) {
-        // 연결은 최대 2초, 응답 읽기는 최대 3초 동안 기다리도록 설정한다.
+        // 연결은 최대 2초, 응답 읽기는 최대 15초 동안 기다리도록 설정한다.
         var factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofSeconds(2));
-        factory.setReadTimeout(Duration.ofSeconds(3));
+        factory.setReadTimeout(Duration.ofSeconds(15));
         this.client = builder.baseUrl(baseUrl).requestFactory(factory).build();
     }
 
@@ -103,4 +103,13 @@ public class ReservationClient {
                 .retrieve().body(ReservationView.class);
     }
 
+    /**
+     * 예약 금액으로 결제하고 반영된 상태를 받는다.
+     * @param id 예약 ID
+     * @return 결제 결과를 반영한 예약
+     */
+    public ReservationView pay(UUID id) {
+        return client.post().uri("/api/reservations/{id}/payment", id)
+                .retrieve().body(ReservationView.class);
+    }
 }

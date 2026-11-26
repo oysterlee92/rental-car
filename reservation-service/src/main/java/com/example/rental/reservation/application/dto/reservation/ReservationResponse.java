@@ -16,7 +16,7 @@ import java.util.UUID;
  * @param returnAt 반납 시각
  * @param amount 확정한 원 단위 예약 요금
  * @param expiresAt 선점 만료 시각
- * @param status 현재 선점 상태
+ * @param status 현재 예약 상태
  */
 public record ReservationResponse(
         UUID id,

@@ -52,4 +52,11 @@ public interface JpaReservationRepository extends JpaRepository<Reservation, UUI
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     List<Reservation> findByVehicleIdAndStatusAndExpiresAtLessThanEqualOrderByExpiresAtAscIdAsc(long vehicleId, ReservationStatus status, LocalDateTime now);
+    /**
+     * 결제 결과 재확인 대상을 읽는다.
+     * @param status 결제 중 상태
+     * @param page 최대 조회 수
+     * @return 재확인할 예약
+     */
+    List<Reservation> findByStatusOrderByCreatedAtAscIdAsc(ReservationStatus status, Pageable page);
 }

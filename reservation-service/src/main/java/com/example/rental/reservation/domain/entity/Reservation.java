@@ -16,7 +16,7 @@ import java.util.UUID;
 
 /**
  * 예약의 대여 기간, 차량 배정과 선점 상태를 함께 관리한다.
- * HELD 상태인 행의 기간 중복은 PostgreSQL 배제 제약이 검사한다.
+ * 선점·결제 중·확정 상태의 기간 중복은 PostgreSQL 배제 제약이 검사한다.
  */
 @Entity
 public class Reservation {
@@ -109,6 +109,38 @@ public class Reservation {
         if (status == ReservationStatus.HELD && !expiresAt.isAfter(now)) {
             status = ReservationStatus.EXPIRED;
         }
+    }
+
+    /**
+     * 유효한 선점을 결제 중으로 바꾼다. 이미 처리한 요청은 현재 상태를 유지한다.
+     * @param now 결제 시작 시각
+     */
+    public void startPayment(LocalDateTime now) {
+        expireIfDue(now);
+        if (status == ReservationStatus.HELD) {
+            status = ReservationStatus.PAYMENT_PENDING;
+        }
+    }
+
+    /**
+     * 결제의 최종 결과를 한 번만 반영한다.
+     * @param approved 결제 승인 여부
+     * @return 이번 호출에서 예약을 새로 확정했는지 여부
+     * @throws ReservationConflictException 결제 중이 아닌 예약에 결과가 들어온 경우
+     */
+    public boolean completePayment(boolean approved) {
+        if (status == ReservationStatus.CONFIRMED || status == ReservationStatus.PAYMENT_FAILED) {
+            return false;
+        }
+        if (status != ReservationStatus.PAYMENT_PENDING) {
+            throw new ReservationConflictException("결제 결과를 반영할 수 없는 예약 상태입니다.");
+        }
+        status = approved ? ReservationStatus.CONFIRMED : ReservationStatus.PAYMENT_FAILED;
+        return approved;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
     }
 
     public UUID getId() {

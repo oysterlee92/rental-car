@@ -1,6 +1,7 @@
 package com.example.rental.reservation.presentation.exception;
 
 import com.example.rental.reservation.application.exception.BranchNotFoundException;
+import com.example.rental.reservation.application.exception.PaymentUnavailableException;
 import com.example.rental.reservation.application.exception.ReservationNotFoundException;
 import com.example.rental.reservation.application.exception.VehicleNotFoundException;
 import com.example.rental.reservation.domain.exception.ReservationConflictException;
@@ -70,5 +71,14 @@ public class ApiExceptionHandler {
     @ExceptionHandler(ReservationConflictException.class)
     public ProblemDetail handleConflict(ReservationConflictException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
+    }
+    /**
+     * 결제 결과를 확인하지 못한 요청에 재확인을 안내한다.
+     * @param exception 통신 또는 결제 응답 오류
+     * @return 결과 미확인 응답
+     */
+    @ExceptionHandler(PaymentUnavailableException.class)
+    public ProblemDetail handlePaymentUnavailable(PaymentUnavailableException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage());
     }
 }

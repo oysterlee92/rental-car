@@ -8,4 +8,9 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     // 앱이 PostgreSQL에 접속할 때 사용할 JDBC 드라이버를 추가한다.
     runtimeOnly 'org.postgresql:postgresql'
+    // Prometheus 메트릭과 OpenTelemetry 분산 추적을 연결한다.
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+    implementation 'org.springframework.boot:spring-boot-starter-opentelemetry'
+    // 자동 설정된 RestClient.Builder로 HTTP 추적 정보를 전파한다.
+    implementation 'org.springframework.boot:spring-boot-starter-restclient'
 }

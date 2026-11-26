@@ -27,8 +27,8 @@ public interface JpaVehicleRepository extends JpaRepository<Vehicle, Long> {
                   SELECT 1
                   FROM reservation r
                   WHERE r.vehicle_id = v.id
-                    AND r.status = 'HELD'
-                    AND r.expires_at > :now
+                    AND ((r.status = 'HELD' AND r.expires_at > :now)
+                         OR r.status IN ('PAYMENT_PENDING', 'CONFIRMED'))
                     AND r.during && tsrange(CAST(:pickupAt AS timestamp without time zone), CAST(:returnAt AS timestamp without time zone), '[)')
               )
             ORDER BY v.id
