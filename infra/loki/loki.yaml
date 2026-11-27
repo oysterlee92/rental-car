@@ -1,0 +1,45 @@
+# 로컬 Docker용 단일 프로세스 구성이다. 로그는 전용 볼륨에 저장한다.
+auth_enabled: false
+server:
+  http_listen_port: 3100
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+distributor:
+  otlp_config:
+    # OTLP 리소스 중 서비스와 프로젝트만 검색 인덱스로 사용한다.
+    default_resource_attributes_as_index_labels: [service.name, compose.project]
+schema_config:
+  configs:
+    # 로그의 저장 형식과 하루 단위 인덱스를 지정한다.
+    - from: "2024-01-01"
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+storage_config:
+  tsdb_shipper:
+    active_index_directory: /loki/index
+    cache_location: /loki/index-cache
+compactor:
+  # 보관 기한이 지난 로그 삭제 작업의 상태도 볼륨에 남긴다.
+  working_directory: /loki/compactor
+  retention_enabled: true
+  delete_request_store: filesystem
+limits_config:
+  # Collector가 보내는 OTLP 로그의 추가 속성을 허용한다.
+  allow_structured_metadata: true
+  # 7일이 지난 로그는 compactor의 주기적인 삭제 대상이 된다.
+  retention_period: 168h
+analytics:
+  reporting_enabled: false

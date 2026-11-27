@@ -27,11 +27,8 @@ public class PaymentPageController {
     @PostMapping("/reservations/{id}/payment")
     public String pay(@PathVariable UUID id, RedirectAttributes redirect) {
         try {
-            var result = client.pay(id);
-            String message = "CONFIRMED".equals(result.status())
-                    ? "결제가 완료되어 예약이 확정되었습니다."
-                    : "결제가 승인되지 않았습니다. 예약 상태를 확인해 주세요.";
-            redirect.addFlashAttribute("paymentNotice", message);
+            // 정상 안내는 상세 조회에서 읽은 예약 상태로 표시한다.
+            client.pay(id);
         } catch (RestClientException exception) {
             // 응답 실패를 결제 거절로 단정하지 않고 상세 상태를 다시 읽는다.
             redirect.addFlashAttribute("paymentNotice", "결제 결과를 확인하고 있습니다. 잠시 후 예약 상태를 확인해 주세요.");

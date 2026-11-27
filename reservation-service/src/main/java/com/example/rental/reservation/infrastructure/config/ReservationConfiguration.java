@@ -1,6 +1,7 @@
 package com.example.rental.reservation.infrastructure.config;
 
 import java.time.Clock;
+import java.time.ZoneId;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableScheduling;
@@ -10,12 +11,12 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 public class ReservationConfiguration {
     /**
-     * 서버의 기본 시간대와 관계없이 UTC 기준의 시계를 제공한다.
+     * 서버의 기본 시간대와 관계없이 설정한 시간대의 시계를 제공한다.
      *
      * @return 선점 서비스에서 사용할 시계
      */
     @Bean
     public Clock reservationClock() {
-        return Clock.systemUTC();
+        return Clock.system(ZoneId.of("Asia/Seoul"));
     }
 }

@@ -40,6 +40,8 @@ services:
       timeout: 3s
       retries: 20
   payment-service:
+    # 공유 로그 디렉터리와 같은 UID·GID로 실행한다.
+    user: "10001:10001"
     build:
       context: .
       args:
@@ -53,10 +55,15 @@ services:
       PAYMENT_MIN_MILLIS: ${PAYMENT_MIN_MILLIS:-200}
       PAYMENT_MAX_MILLIS: ${PAYMENT_MAX_MILLIS:-5000}
       PAYMENT_FAILURE_RATE: ${PAYMENT_FAILURE_RATE:-0.1}
-      OTLP_TRACES_ENDPOINT: http://tempo:4318/v1/traces
+      OTLP_TRACES_ENDPOINT: http://otel-collector:4318/v1/traces
+      APP_LOG_FILE: /var/log/rental/payment-service/application.log
+    volumes:
+      - application-logs:/var/log/rental
     ports:
       - "127.0.0.1:8082:8082"
     depends_on:
+      otel-collector-init:
+        condition: service_completed_successfully
       payment-postgres:
         condition: service_healthy
     healthcheck:
@@ -66,6 +73,8 @@ services:
       retries: 30
       start_period: 30s
   reservation-service:
+    # 공유 로그 디렉터리와 같은 UID·GID로 실행한다.
+    user: "10001:10001"
     build:
       context: .
       args:
@@ -77,10 +86,15 @@ services:
       DB_USERNAME: reservation
       DB_PASSWORD: reservation-local
       PAYMENT_BASE_URL: http://payment-service:8082
-      OTLP_TRACES_ENDPOINT: http://tempo:4318/v1/traces
+      OTLP_TRACES_ENDPOINT: http://otel-collector:4318/v1/traces
+      APP_LOG_FILE: /var/log/rental/reservation-service/application.log
+    volumes:
+      - application-logs:/var/log/rental
     ports:
       - "127.0.0.1:8081:8081"
     depends_on:
+      otel-collector-init:
+        condition: service_completed_successfully
       # PostgreSQL의 상태 확인이 성공하면 Reservation을 시작하고 테이블을 준비한다.
       postgres:
         condition: service_healthy
@@ -93,6 +107,8 @@ services:
       retries: 30
       start_period: 30s
   web-service:
+    # 공유 로그 디렉터리와 같은 UID·GID로 실행한다.
+    user: "10001:10001"
     build:
       context: .
       args:
@@ -102,10 +118,15 @@ services:
       TZ: Asia/Seoul
       JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Seoul
       RESERVATION_BASE_URL: http://reservation-service:8081
-      OTLP_TRACES_ENDPOINT: http://tempo:4318/v1/traces
+      OTLP_TRACES_ENDPOINT: http://otel-collector:4318/v1/traces
+      APP_LOG_FILE: /var/log/rental/web-service/application.log
+    volumes:
+      - application-logs:/var/log/rental
     ports:
       - "127.0.0.1:8080:8080"
     depends_on:
+      otel-collector-init:
+        condition: service_completed_successfully
       # Reservation의 상태 확인이 성공한 뒤 Web을 시작한다.
       reservation-service:
         condition: service_healthy
@@ -146,10 +167,89 @@ services:
     command: ["-config.file=/etc/tempo.yaml"]
     ports:
       - "127.0.0.1:3200:3200"
-      - "127.0.0.1:4318:4318"
     volumes:
       - ./infra/tempo/tempo.yaml:/etc/tempo.yaml:ro
       - tempo-data:/var/tempo
+  # 완료 표시가 없는 Loki 볼륨만 준비하고 종료한다.
+  loki-init:
+    image: busybox:1.37.0
+    user: "0:0"
+    command:
+      - sh
+      - -ec
+      - |
+        # 해당 볼륨에서 권한 준비가 성공한 경우에는 다시 변경하지 않는다.
+        if [ ! -f /loki/.permissions-10001-10001-v1 ]; then
+          chown -R 10001:10001 /loki
+          chmod 0750 /loki
+          # 모든 작업이 성공한 뒤 완료 표시를 남긴다.
+          touch /loki/.permissions-10001-10001-v1
+        fi
+    volumes:
+      - loki-data:/loki
+    restart: "no"
+  # 앱의 JSON 로그를 저장하고 Grafana의 LogQL 조회에 응답한다.
+  loki:
+    image: grafana/loki:3.6.0
+    # Loki 기본 사용자의 UID·GID로 실행한다.
+    user: "10001:10001"
+    command: ["-config.file=/etc/loki/loki.yaml"]
+    ports:
+      - "127.0.0.1:3100:3100"
+    volumes:
+      - ./infra/loki/loki.yaml:/etc/loki/loki.yaml:ro
+      - loki-data:/loki
+    depends_on:
+      # 초기화가 완료됐거나 완료 표시를 확인한 뒤 Loki를 시작한다.
+      loki-init:
+        condition: service_completed_successfully
+  # 로그·상태 볼륨별로 완료 표시가 없을 때만 권한을 준비한다.
+  otel-collector-init:
+    image: busybox:1.37.0
+    user: "0:0"
+    command:
+      - sh
+      - -ec
+      - |
+        # 로그 볼륨과 상태 볼륨의 완료 표시는 각각 보관한다.
+        if [ ! -f /var/log/rental/.permissions-10001-10001-v1 ]; then
+          mkdir -p /var/log/rental/web-service /var/log/rental/reservation-service /var/log/rental/payment-service
+          chown -R 10001:10001 /var/log/rental
+          chmod 0750 /var/log/rental /var/log/rental/web-service /var/log/rental/reservation-service /var/log/rental/payment-service
+          touch /var/log/rental/.permissions-10001-10001-v1
+        fi
+        if [ ! -f /var/lib/otelcol/.permissions-10001-10001-v1 ]; then
+          chown -R 10001:10001 /var/lib/otelcol
+          chmod 0750 /var/lib/otelcol
+          touch /var/lib/otelcol/.permissions-10001-10001-v1
+        fi
+    volumes:
+      - application-logs:/var/log/rental
+      - otel-collector-data:/var/lib/otelcol
+    restart: "no"
+  # 로그·메트릭·추적을 받아 각 저장소에 전달한다.
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.139.0
+    # 앱과 같은 일반 사용자로 로그를 읽고 상태 볼륨에 기록한다.
+    user: "10001:10001"
+    command: ["--config=/etc/otelcol/collector.yaml"]
+    environment:
+      GOMEMLIMIT: 384MiB
+    mem_limit: 512m
+    ports:
+      - "127.0.0.1:4318:4318"
+      - "127.0.0.1:13133:13133"
+    volumes:
+      - ./infra/otel-collector/collector.yaml:/etc/otelcol/collector.yaml:ro
+      - application-logs:/var/log/rental:ro
+      - otel-collector-data:/var/lib/otelcol
+    depends_on:
+      otel-collector-init:
+        condition: service_completed_successfully
+      loki:
+        condition: service_started
+      tempo:
+        condition: service_started
   grafana:
     image: grafana/grafana:12.1.0
     ports:
@@ -168,3 +268,6 @@ volumes:
   prometheus-data:
   tempo-data:
   grafana-data:
+  loki-data:
+  application-logs:
+  otel-collector-data:

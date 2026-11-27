@@ -1,0 +1,123 @@
+extensions:
+  # 파일을 어디까지 읽었는지와 미전송 로그 큐를 전용 볼륨에 보관한다.
+  file_storage:
+    directory: /var/lib/otelcol
+  health_check:
+    endpoint: 0.0.0.0:13133
+receivers:
+  # 앱의 추적 전송 요청을 받는다.
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+  # 기존 Micrometer 메트릭과 히스토그램을 그대로 가져온다.
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: rental-services
+          scrape_interval: 5s
+          metrics_path: /actuator/prometheus
+          static_configs:
+            - targets: [web-service:8080, reservation-service:8081, payment-service:8082]
+  filelog/web:
+    include: [/var/log/rental/web-service/application.log*]
+    start_at: beginning
+    storage: file_storage
+    retry_on_failure:
+      enabled: true
+    # 수집 파일의 위치가 서비스 이름을 결정한다. 요청 ID는 리소스에 넣지 않는다.
+    resource:
+      service.name: web-service
+      compose.project: rental-car
+    operators:
+      - type: json_parser
+        parse_from: body
+        parse_to: body
+        timestamp:
+          parse_from: body["@timestamp"]
+          layout_type: gotime
+          layout: '2006-01-02T15:04:05.999999999Z07:00'
+        severity:
+          parse_from: body.level
+  filelog/reservation:
+    include: [/var/log/rental/reservation-service/application.log*]
+    start_at: beginning
+    storage: file_storage
+    retry_on_failure:
+      enabled: true
+    # 수집 파일의 위치가 서비스 이름을 결정한다. 요청 ID는 리소스에 넣지 않는다.
+    resource:
+      service.name: reservation-service
+      compose.project: rental-car
+    operators:
+      - type: json_parser
+        parse_from: body
+        parse_to: body
+        timestamp:
+          parse_from: body["@timestamp"]
+          layout_type: gotime
+          layout: '2006-01-02T15:04:05.999999999Z07:00'
+        severity:
+          parse_from: body.level
+  filelog/payment:
+    include: [/var/log/rental/payment-service/application.log*]
+    start_at: beginning
+    storage: file_storage
+    retry_on_failure:
+      enabled: true
+    # 수집 파일의 위치가 서비스 이름을 결정한다. 요청 ID는 리소스에 넣지 않는다.
+    resource:
+      service.name: payment-service
+      compose.project: rental-car
+    operators:
+      - type: json_parser
+        parse_from: body
+        parse_to: body
+        timestamp:
+          parse_from: body["@timestamp"]
+          layout_type: gotime
+          layout: '2006-01-02T15:04:05.999999999Z07:00'
+        severity:
+          parse_from: body.level
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+    spike_limit_mib: 64
+  batch:
+    timeout: 1s
+    send_batch_size: 512
+exporters:
+  otlphttp/loki:
+    # exporter가 /v1/logs를 붙이므로 /otlp까지만 적는다.
+    endpoint: http://loki:3100/otlp
+    sending_queue:
+      storage: file_storage
+      queue_size: 1000
+    retry_on_failure:
+      enabled: true
+      max_elapsed_time: 0s
+  otlphttp/tempo:
+    endpoint: http://tempo:4318
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    # 기존 대시보드가 사용하는 메트릭 이름에 접미사를 다시 붙이지 않는다.
+    translation_strategy: NoTranslation
+    enable_open_metrics: true
+    resource_to_telemetry_conversion:
+      enabled: false
+service:
+  extensions: [file_storage, health_check]
+  pipelines:
+    logs:
+      receivers: [filelog/web, filelog/reservation, filelog/payment]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/loki]
+    metrics:
+      receivers: [prometheus]
+      processors: [memory_limiter, batch]
+      exporters: [prometheus]
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/tempo]

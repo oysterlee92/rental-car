@@ -3,3 +3,5 @@
 .git
 .idea
 README.md
+# 실행 중 생성한 로그는 이미지에 포함하지 않는다.
+**/logs

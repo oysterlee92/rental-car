@@ -2,13 +2,268 @@
   "uid": "rental-payment",
   "title": "렌트카 결제 지연 관측",
   "schemaVersion": 41,
-  "version": 1,
+  "version": 2,
   "refresh": "5s",
   "time": {
     "from": "now-15m",
     "to": "now"
   },
   "panels": [
+    {
+      "id": 100,
+      "title": "메트릭 수집 상태",
+      "description": "1은 메트릭 주소 수집 성공, 0은 실패입니다. 앱 수집과 Collector 수집을 함께 확인해 주세요. 업무 처리 성공 여부와는 별개입니다.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "up{job=\"rental-services\"}",
+          "legendFormat": "앱 {{instance}}"
+        },
+        {
+          "refId": "B",
+          "expr": "up{job=\"otel-collector\"}",
+          "legendFormat": "Collector {{instance}}"
+        }
+      ]
+    },
+    {
+      "id": 101,
+      "title": "서비스별 프로세스 CPU 사용률",
+      "description": "JVM이 보고하는 앱 프로세스의 최근 CPU 사용률입니다. 호스트나 Docker 전체의 CPU 사용률은 아닙니다.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * max by (application) (process_cpu_usage)",
+          "legendFormat": "{{application}}"
+        }
+      ]
+    },
+    {
+      "id": 102,
+      "title": "서비스별 JVM 힙 메모리",
+      "description": "힙에서 사용 중인 용량과 현재 JVM이 확보한 용량을 표시합니다. 확보 용량은 최대 허용 용량과 다릅니다. 프로세스 전체 메모리와도 구분해 주세요.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (application) (jvm_memory_used_bytes{area=\"heap\"})",
+          "legendFormat": "{{application}} 사용"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (application) (jvm_memory_committed_bytes{area=\"heap\"})",
+          "legendFormat": "{{application}} 확보"
+        }
+      ]
+    },
+    {
+      "id": 103,
+      "title": "서비스별 GC 중단 시간 비율",
+      "description": "최근 5분 동안 GC 중단에 사용한 누적 시간의 초당 비율입니다. 개별 GC의 p95나 CPU 사용률과는 다릅니다.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * sum by (application) (rate(jvm_gc_pause_seconds_sum[5m]))",
+          "legendFormat": "{{application}}"
+        }
+      ]
+    },
+    {
+      "id": 104,
+      "title": "서비스별 HTTP 처리량",
+      "description": "최근 5분의 초당 HTTP 요청 수입니다. 상태 확인과 메트릭 수집용 Actuator 요청은 제외합니다.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (application) (rate(http_server_requests_seconds_count{uri!~\"/actuator.*\"}[5m]))",
+          "legendFormat": "{{application}}"
+        }
+      ]
+    },
+    {
+      "id": 105,
+      "title": "서비스별 HTTP 5xx 비율",
+      "description": "Actuator를 제외한 HTTP 요청 중 5xx 응답 비율입니다. 409 예약 충돌과 정상 처리된 결제 거절은 5xx에 포함하지 않습니다. 요청 시계열이 없으면 값이 표시되지 않을 수 있습니다.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * (sum by (application) (rate(http_server_requests_seconds_count{uri!~\"/actuator.*\",status=~\"5..\"}[5m])) or on (application) (0 * sum by (application) (rate(http_server_requests_seconds_count{uri!~\"/actuator.*\"}[5m])))) / clamp_min(sum by (application) (rate(http_server_requests_seconds_count{uri!~\"/actuator.*\"}[5m])), 0.000000001)",
+          "legendFormat": "{{application}}"
+        }
+      ]
+    },
+    {
+      "id": 106,
+      "title": "서비스별 JVM 스레드",
+      "description": "JVM이 보고하는 현재 스레드 수와 모니터 잠금을 기다리는 BLOCKED 스레드 수입니다. HTTP 요청 수나 가상 스레드 전체 수를 뜻하지 않습니다.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (application) (jvm_threads_live_threads)",
+          "legendFormat": "{{application}} 전체"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (application) (jvm_threads_states_threads{state=\"blocked\"})",
+          "legendFormat": "{{application}} BLOCKED"
+        }
+      ]
+    },
+    {
+      "id": 107,
+      "title": "서비스별 DB 연결 대기",
+      "description": "HikariCP에서 DB 연결을 빌리려고 대기 중인 스레드 수입니다. 사용 연결이 최대치에 가까운 상태로 대기가 이어지는지 확인해 주세요. DB가 없는 Web에는 값이 없습니다.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (application) (hikaricp_connections_pending)",
+          "legendFormat": "{{application}}"
+        }
+      ]
+    },
     {
       "id": 1,
       "title": "선점 접수 p95",
@@ -22,7 +277,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 0
+        "y": 32
       },
       "fieldConfig": {
         "defaults": {
@@ -51,7 +306,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 0
+        "y": 32
       },
       "fieldConfig": {
         "defaults": {
@@ -85,7 +340,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 8
+        "y": 40
       },
       "fieldConfig": {
         "defaults": {
@@ -114,7 +369,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 8
+        "y": 40
       },
       "fieldConfig": {
         "defaults": {
@@ -143,7 +398,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 16
+        "y": 48
       },
       "fieldConfig": {
         "defaults": {
@@ -161,8 +416,8 @@
     },
     {
       "id": 6,
-      "title": "서비스별 DB 사용 연결",
-      "description": "5분 이동 구간으로 수집한 값이다. 데이터가 쌓인 뒤 해석한다.",
+      "title": "서비스별 DB 사용·최대 연결",
+      "description": "HikariCP의 사용 연결과 최대 연결을 함께 표시합니다. DB 연결 대기 패널과 비교해 주세요. DB가 없는 Web에는 값이 없습니다.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -172,7 +427,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 16
+        "y": 48
       },
       "fieldConfig": {
         "defaults": {
@@ -184,7 +439,12 @@
         {
           "refId": "A",
           "expr": "sum by (application) (hikaricp_connections_active)",
-          "legendFormat": "{{application}}"
+          "legendFormat": "{{application}} 사용"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (application) (hikaricp_connections_max)",
+          "legendFormat": "{{application}} 최대"
         }
       ]
     },
@@ -201,7 +461,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 24
+        "y": 56
       },
       "fieldConfig": {
         "defaults": {
@@ -214,6 +474,84 @@
           "refId": "A",
           "expr": "sum(rate(reservation_confirmation_seconds_count[5m]))",
           "legendFormat": "{{application}}"
+        }
+      ]
+    },
+    {
+      "id": 108,
+      "title": "앱 로그",
+      "description": "대시보드 조회 시간 범위에서 최신 로그를 최대 200줄 표시합니다. 로그를 펼쳐 서비스와 예약 ID를 확인하고 traceId의 Tempo 링크로 이동해 주세요. 자세한 검색은 Explore를 사용해 주세요.",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 64
+      },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "sortOrder": "Descending",
+        "dedupStrategy": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "queryType": "range",
+          "expr": "{compose_project=\"rental-car\", service_name=~\"web-service|reservation-service|payment-service\"}",
+          "maxLines": 200
+        }
+      ]
+    },
+    {
+      "id": 109,
+      "title": "ERROR 로그",
+      "description": "대시보드 조회 시간 범위에서 최신 로그를 최대 200줄 표시합니다. 로그를 펼쳐 서비스와 예약 ID를 확인하고 traceId의 Tempo 링크로 이동해 주세요. 자세한 검색은 Explore를 사용해 주세요.",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 76
+      },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "sortOrder": "Descending",
+        "dedupStrategy": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "queryType": "range",
+          "expr": "{compose_project=\"rental-car\", service_name=~\"web-service|reservation-service|payment-service\"} | json | __error__=\"\" | level=\"ERROR\"",
+          "maxLines": 200
         }
       ]
     }

@@ -11,3 +11,16 @@ datasources:
     type: tempo
     access: proxy
     url: http://tempo:3200
+  - name: Loki
+    uid: loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    jsonData:
+      derivedFields:
+        # 원본 JSON의 traceId를 Tempo의 추적 조회 값으로 전달한다.
+        - name: TraceID
+          matcherRegex: '"traceId"\s*:\s*"([a-fA-F0-9]{32})"'
+          datasourceUid: tempo
+          url: '$${__value.raw}'
+          urlDisplayLabel: 'Tempo에서 추적 보기'

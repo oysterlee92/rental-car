@@ -5,11 +5,14 @@ import com.example.rental.payment.application.dto.PaymentResponse;
 import com.example.rental.payment.domain.repository.PaymentRepository;
 import java.time.Clock;
 import java.time.LocalDateTime;
+
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /** 결제 요청과 최종 결과를 짧은 트랜잭션으로 저장한다. */
 @Service
+@Slf4j
 public class PaymentTransactions {
     private final PaymentRepository payments;
     private final Clock clock;
@@ -46,6 +49,13 @@ public class PaymentTransactions {
     public PaymentResponse complete(PaymentRequest request, boolean approved) {
         var payment = payments.findForUpdate(request.reservationId());
         payment.requireSameRequest(request.amount(), request.expiresAt());
+        var now = LocalDateTime.now(clock);
+        log.info(
+                "요청 승인 기한={}, DB 승인 기한={}, 현재 시각={}",
+                request.expiresAt(),
+                payment.getExpiresAt(),
+                now
+        );
         payment.complete(approved, LocalDateTime.now(clock));
         return PaymentResponse.from(payment);
     }
